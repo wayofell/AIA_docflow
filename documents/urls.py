@@ -17,4 +17,10 @@ urlpatterns = [
     path('documents/upload/', views.document_upload_page, name='document-upload'),
     path('documents/<int:pk>/', views.document_view_page, name='document-view'),
     path('documents/search/', views.search_page, name='document-search'),
+    
+    # Authentication URLs
+    path('login/', views.user_login, name='user-login'),
+    path('logout/', views.user_logout, name='user-logout'),
+    path('register/', views.user_register, name='user-register'),
+    path('reset-password/', views.reset_password_request, name='reset-password'),
 ] 

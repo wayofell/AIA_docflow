@@ -16,6 +16,50 @@
             max-height: 400px;
             object-fit: contain;
         }
+        .auth-modal .modal-header {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+        .auth-modal .modal-footer {
+            border-top: none;
+            padding-top: 0;
+        }
+        .auth-separator {
+            position: relative;
+            text-align: center;
+            margin: 1.5rem 0;
+            font-size: 14px;
+            color: #6c757d;
+        }
+        .auth-separator::before, 
+        .auth-separator::after {
+            content: "";
+            position: absolute;
+            top: 50%;
+            width: 40%;
+            height: 1px;
+            background-color: #dee2e6;
+        }
+        .auth-separator::before {
+            left: 0;
+        }
+        .auth-separator::after {
+            right: 0;
+        }
+        .social-login {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+        .social-login button {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
     </style>
     {% block extra_css %}{% endblock %}
 </head>
@@ -41,15 +85,26 @@
                 </ul>
                 <ul class="navbar-nav ms-auto">
                     {% if user.is_authenticated %}
-                        <li class="nav-item">
-                            <span class="nav-link">{{ user.username }}</span>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{% url 'admin:logout' %}">Выход</a>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" 
+                               data-bs-toggle="dropdown" aria-expanded="false">
+                                {{ user.username }}
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+                                <li><a class="dropdown-item" href="#">Профиль</a></li>
+                                <li><a class="dropdown-item" href="#">Настройки</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="{% url 'user-logout' %}">Выход</a></li>
+                            </ul>
                         </li>
                     {% else %}
                         <li class="nav-item">
-                            <a class="nav-link" href="{% url 'admin:login' %}">Вход</a>
+                            <button class="btn btn-outline-light" data-bs-toggle="modal" 
+                                   data-bs-target="#loginModal">Вход</button>
+                        </li>
+                        <li class="nav-item ms-2">
+                            <button class="btn btn-light" data-bs-toggle="modal" 
+                                   data-bs-target="#registerModal">Регистрация</button>
                         </li>
                     {% endif %}
                 </ul>
@@ -70,9 +125,205 @@
         {% block content %}{% endblock %}
     </div>
 
+    <!-- Login Modal -->
+    <div class="modal fade auth-modal" id="loginModal" tabindex="-1" aria-labelledby="loginModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="loginModalLabel">Вход в аккаунт</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="loginForm" method="post" action="{% url 'user-login' %}">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="loginEmail" class="form-label">Имя пользователя или Email</label>
+                            <input type="text" class="form-control" id="loginEmail" name="username" placeholder="Введите имя пользователя или email" required>
+                            <div class="form-text">Для входа используйте имя пользователя из учётной записи</div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="loginPassword" class="form-label">Пароль</label>
+                            <input type="password" class="form-control" id="loginPassword" name="password" required>
+                        </div>
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="rememberMe" name="remember_me">
+                            <label class="form-check-label" for="rememberMe">Запомнить меня</label>
+                        </div>
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary">Войти</button>
+                        </div>
+                        <div class="text-center mt-3">
+                            <a href="#" class="text-decoration-none" data-bs-toggle="modal" data-bs-target="#resetPasswordModal" data-bs-dismiss="modal">Забыли пароль?</a>
+                        </div>
+                    </form>
+                    
+                    <div class="auth-separator">ИЛИ</div>
+                    
+                    <div class="social-login">
+                        <!-- Эти кнопки следует подключить к реальным провайдерам OAuth в будущем -->
+                        <a href="#" class="btn btn-outline-primary" title="Google" onclick="alert('Функциональность входа через Google будет доступна в ближайшем обновлении')">
+                            <i class="bi bi-google"></i>
+                        </a>
+                        <a href="#" class="btn btn-outline-primary" title="Facebook" onclick="alert('Функциональность входа через Facebook будет доступна в ближайшем обновлении')">
+                            <i class="bi bi-facebook"></i>
+                        </a>
+                        <a href="#" class="btn btn-outline-primary" title="Twitter" onclick="alert('Функциональность входа через Twitter будет доступна в ближайшем обновлении')">
+                            <i class="bi bi-twitter"></i>
+                        </a>
+                    </div>
+                </div>
+                <div class="modal-footer justify-content-center">
+                    <span>Нет аккаунта? <a href="#" data-bs-toggle="modal" data-bs-target="#registerModal" data-bs-dismiss="modal">Зарегистрироваться</a></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Register Modal -->
+    <div class="modal fade auth-modal" id="registerModal" tabindex="-1" aria-labelledby="registerModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="registerModalLabel">Создание аккаунта</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="registerForm" method="post" action="{% url 'user-register' %}">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="registerUsername" class="form-label">Имя пользователя</label>
+                            <input type="text" class="form-control" id="registerUsername" name="username" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="registerEmail" class="form-label">Email</label>
+                            <input type="email" class="form-control" id="registerEmail" name="email" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="registerPassword" class="form-label">Пароль</label>
+                            <input type="password" class="form-control" id="registerPassword" name="password1" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="registerPasswordConfirm" class="form-label">Подтверждение пароля</label>
+                            <input type="password" class="form-control" id="registerPasswordConfirm" name="password2" required>
+                        </div>
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="termsAgree" required>
+                            <label class="form-check-label" for="termsAgree">Я согласен с <a href="#">Условиями использования</a></label>
+                        </div>
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary">Зарегистрироваться</button>
+                        </div>
+                    </form>
+                    
+                    <div class="auth-separator">ИЛИ</div>
+                    
+                    <div class="social-login">
+                        <!-- Эти кнопки следует подключить к реальным провайдерам OAuth в будущем -->
+                        <a href="#" class="btn btn-outline-primary" title="Google" onclick="alert('Функциональность входа через Google будет доступна в ближайшем обновлении')">
+                            <i class="bi bi-google"></i>
+                        </a>
+                        <a href="#" class="btn btn-outline-primary" title="Facebook" onclick="alert('Функциональность входа через Facebook будет доступна в ближайшем обновлении')">
+                            <i class="bi bi-facebook"></i>
+                        </a>
+                        <a href="#" class="btn btn-outline-primary" title="Twitter" onclick="alert('Функциональность входа через Twitter будет доступна в ближайшем обновлении')">
+                            <i class="bi bi-twitter"></i>
+                        </a>
+                    </div>
+                </div>
+                <div class="modal-footer justify-content-center">
+                    <span>Уже есть аккаунт? <a href="#" data-bs-toggle="modal" data-bs-target="#loginModal" data-bs-dismiss="modal">Войти</a></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reset Password Modal -->
+    <div class="modal fade auth-modal" id="resetPasswordModal" tabindex="-1" aria-labelledby="resetPasswordModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="resetPasswordModalLabel">Восстановление пароля</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted">Укажите ваш email, и мы отправим вам ссылку для сброса пароля.</p>
+                    <form id="resetPasswordForm" method="post" action="{% url 'reset-password' %}">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="resetEmail" class="form-label">Email</label>
+                            <input type="email" class="form-control" id="resetEmail" name="email" required>
+                        </div>
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary">Отправить</button>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer justify-content-center">
+                    <span><a href="#" data-bs-toggle="modal" data-bs-target="#loginModal" data-bs-dismiss="modal">Вернуться к входу</a></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <!-- Optional JavaScript -->
     {% block extra_js %}{% endblock %}
+
+    <!-- Глобальные переменные для JavaScript -->
+    <script>
+        // Экспортируем Django-переменные в глобальные переменные JavaScript
+        window.showLoginModal = {% if show_login_modal %}true{% else %}false{% endif %};
+        window.showRegisterModal = {% if show_register_modal %}true{% else %}false{% endif %};
+    </script>
+
+    <!-- Auth Modals JavaScript -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Показать модальное окно при необходимости
+            if (window.showLoginModal) {
+                var loginModal = new bootstrap.Modal(document.getElementById('loginModal'));
+                loginModal.show();
+            }
+            
+            if (window.showRegisterModal) {
+                var registerModal = new bootstrap.Modal(document.getElementById('registerModal'));
+                registerModal.show();
+            }
+            
+            // Обработка межмодальной навигации
+            var authModals = document.querySelectorAll('.auth-modal');
+            authModals.forEach(function(modal) {
+                modal.addEventListener('hidden.bs.modal', function(event) {
+                    // Очистить все формы при закрытии модального окна
+                    var forms = modal.querySelectorAll('form');
+                    forms.forEach(function(form) {
+                        form.reset();
+                    });
+                });
+            });
+            
+            // Валидация форм
+            var registerForm = document.getElementById('registerForm');
+            if (registerForm) {
+                registerForm.addEventListener('submit', function(event) {
+                    var password1 = document.getElementById('registerPassword').value;
+                    var password2 = document.getElementById('registerPasswordConfirm').value;
+                    
+                    if (password1 !== password2) {
+                        event.preventDefault();
+                        alert('Пароли не совпадают!');
+                    }
+                    
+                    if (password1.length < 8) {
+                        event.preventDefault();
+                        alert('Пароль должен содержать не менее 8 символов!');
+                    }
+                });
+            }
+        });
+    </script>
 </body>
 </html> 
