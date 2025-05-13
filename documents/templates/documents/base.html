@@ -134,11 +134,21 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
+                    <!-- Сообщения об ошибках для логина -->
+                    {% if show_login_modal and messages %}
+                        {% for message in messages %}
+                            <div class="alert alert-{{ message.tags }}">
+                                {{ message }}
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                    
                     <form id="loginForm" method="post" action="{% url 'user-login' %}">
                         {% csrf_token %}
                         <div class="mb-3">
                             <label for="loginEmail" class="form-label">Имя пользователя или Email</label>
-                            <input type="text" class="form-control" id="loginEmail" name="username" placeholder="Введите имя пользователя или email" required>
+                            <input type="text" class="form-control" id="loginEmail" name="username" 
+                                   value="{{ login_username }}" placeholder="Введите имя пользователя или email" required>
                             <div class="form-text">Для входа используйте имя пользователя из учётной записи</div>
                         </div>
                         <div class="mb-3">
@@ -188,19 +198,31 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
+                    <!-- Сообщения об ошибках для регистрации -->
+                    {% if show_register_modal and messages %}
+                        {% for message in messages %}
+                            <div class="alert alert-{{ message.tags }}">
+                                {{ message }}
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                    
                     <form id="registerForm" method="post" action="{% url 'user-register' %}">
                         {% csrf_token %}
                         <div class="mb-3">
                             <label for="registerUsername" class="form-label">Имя пользователя</label>
-                            <input type="text" class="form-control" id="registerUsername" name="username" required>
+                            <input type="text" class="form-control" id="registerUsername" 
+                                   name="username" value="{{ register_username }}" required>
                         </div>
                         <div class="mb-3">
                             <label for="registerEmail" class="form-label">Email</label>
-                            <input type="email" class="form-control" id="registerEmail" name="email" required>
+                            <input type="email" class="form-control" id="registerEmail" 
+                                   name="email" value="{{ register_email }}" required>
                         </div>
                         <div class="mb-3">
                             <label for="registerPassword" class="form-label">Пароль</label>
                             <input type="password" class="form-control" id="registerPassword" name="password1" required>
+                            <div class="form-text">Пароль должен содержать не менее 8 символов</div>
                         </div>
                         <div class="mb-3">
                             <label for="registerPasswordConfirm" class="form-label">Подтверждение пароля</label>
@@ -246,12 +268,22 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
+                    <!-- Сообщения об ошибках для сброса пароля -->
+                    {% if show_reset_modal and messages %}
+                        {% for message in messages %}
+                            <div class="alert alert-{{ message.tags }}">
+                                {{ message }}
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                    
                     <p class="text-muted">Укажите ваш email, и мы отправим вам ссылку для сброса пароля.</p>
                     <form id="resetPasswordForm" method="post" action="{% url 'reset-password' %}">
                         {% csrf_token %}
                         <div class="mb-3">
                             <label for="resetEmail" class="form-label">Email</label>
-                            <input type="email" class="form-control" id="resetEmail" name="email" required>
+                            <input type="email" class="form-control" id="resetEmail" 
+                                   name="email" value="{{ reset_email }}" required>
                         </div>
                         <div class="d-grid">
                             <button type="submit" class="btn btn-primary">Отправить</button>
@@ -277,6 +309,7 @@
         // Экспортируем Django-переменные в глобальные переменные JavaScript
         window.showLoginModal = {% if show_login_modal %}true{% else %}false{% endif %};
         window.showRegisterModal = {% if show_register_modal %}true{% else %}false{% endif %};
+        window.showResetModal = {% if show_reset_modal %}true{% else %}false{% endif %};
     </script>
 
     <!-- Auth Modals JavaScript -->
@@ -291,6 +324,12 @@
             if (window.showRegisterModal) {
                 var registerModal = new bootstrap.Modal(document.getElementById('registerModal'));
                 registerModal.show();
+            }
+            
+            // Показать модальное окно сброса пароля при необходимости
+            if (window.showResetModal) {
+                var resetModal = new bootstrap.Modal(document.getElementById('resetPasswordModal'));
+                resetModal.show();
             }
             
             // Обработка межмодальной навигации

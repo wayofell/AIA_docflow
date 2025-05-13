@@ -162,9 +162,18 @@ class DocumentViewSet(viewsets.ModelViewSet):
 
 def home_page(request):
     """
-    Redirect to document list page
+    Render the home page
     """
-    return redirect('document-list')
+    context = {
+        'show_login_modal': 'show_login_modal' in request.GET,
+        'show_register_modal': 'show_register_modal' in request.GET,
+        'show_reset_modal': 'show_reset_modal' in request.GET,
+        'login_username': request.session.get('login_username', ''),
+        'register_username': request.session.get('register_username', ''),
+        'register_email': request.session.get('register_email', ''),
+        'reset_email': request.session.get('reset_email', '')
+    }
+    return render(request, 'documents/home.html', context)
 
 def document_upload_page(request):
     """
@@ -175,7 +184,12 @@ def document_upload_page(request):
         
     context = {
         'show_login_modal': 'show_login_modal' in request.GET,
-        'show_register_modal': 'show_register_modal' in request.GET
+        'show_register_modal': 'show_register_modal' in request.GET,
+        'show_reset_modal': 'show_reset_modal' in request.GET,
+        'login_username': request.session.get('login_username', ''),
+        'register_username': request.session.get('register_username', ''),
+        'register_email': request.session.get('register_email', ''),
+        'reset_email': request.session.get('reset_email', '')
     }
     return render(request, 'documents/upload.html', context)
 
@@ -185,7 +199,12 @@ def document_list_page(request):
     """
     context = {
         'show_login_modal': 'show_login_modal' in request.GET,
-        'show_register_modal': 'show_register_modal' in request.GET
+        'show_register_modal': 'show_register_modal' in request.GET,
+        'show_reset_modal': 'show_reset_modal' in request.GET,
+        'login_username': request.session.get('login_username', ''),
+        'register_username': request.session.get('register_username', ''),
+        'register_email': request.session.get('register_email', ''),
+        'reset_email': request.session.get('reset_email', '')
     }
     return render(request, 'documents/list.html', context)
 
@@ -202,7 +221,12 @@ def document_view_page(request, pk):
     context = {
         'document_id': pk,
         'show_login_modal': 'show_login_modal' in request.GET,
-        'show_register_modal': 'show_register_modal' in request.GET
+        'show_register_modal': 'show_register_modal' in request.GET,
+        'show_reset_modal': 'show_reset_modal' in request.GET,
+        'login_username': request.session.get('login_username', ''),
+        'register_username': request.session.get('register_username', ''),
+        'register_email': request.session.get('register_email', ''),
+        'reset_email': request.session.get('reset_email', '')
     }
     return render(request, 'documents/view.html', context)
 
@@ -215,7 +239,12 @@ def search_page(request):
         
     context = {
         'show_login_modal': 'show_login_modal' in request.GET,
-        'show_register_modal': 'show_register_modal' in request.GET
+        'show_register_modal': 'show_register_modal' in request.GET,
+        'show_reset_modal': 'show_reset_modal' in request.GET,
+        'login_username': request.session.get('login_username', ''),
+        'register_username': request.session.get('register_username', ''),
+        'register_email': request.session.get('register_email', ''),
+        'reset_email': request.session.get('reset_email', '')
     }
     return render(request, 'documents/search.html', context)
 
@@ -318,6 +347,9 @@ def user_login(request):
         else:
             messages.error(request, "Неправильное имя пользователя/email или пароль.")
             
+            # Сохраняем введенный логин для отображения в форме
+            request.session['login_username'] = username_or_email
+            
             # Redirect back with error message and show login modal
             return redirect(f"{reverse('document-list')}?show_login_modal=1")
     else:
@@ -339,8 +371,12 @@ def user_register(request):
     if request.method == 'POST':
         username = request.POST.get('username')
         email = request.POST.get('email')
-        password = request.POST.get('password')
-        password_confirm = request.POST.get('password_confirm')
+        password = request.POST.get('password1')  # Updated to match form field name
+        password_confirm = request.POST.get('password2')  # Updated to match form field name
+        
+        # Сохраняем введенные данные в сессии для отображения после перезагрузки страницы
+        request.session['register_username'] = username
+        request.session['register_email'] = email
         
         # Basic validation
         if not (username and email and password and password_confirm):
@@ -372,6 +408,12 @@ def user_register(request):
                 password=password
             )
             
+            # Очищаем сохраненные данные
+            if 'register_username' in request.session:
+                del request.session['register_username']
+            if 'register_email' in request.session:
+                del request.session['register_email']
+            
             # Auto-login after registration
             login(request, user)
             messages.success(request, f"Регистрация успешна. Добро пожаловать, {username}!")
@@ -391,6 +433,9 @@ def reset_password_request(request):
     if request.method == 'POST':
         email = request.POST.get('email')
         
+        # Сохраняем email в сессии
+        request.session['reset_email'] = email
+        
         # Validate email
         if not email:
             messages.error(request, "Укажите email.")
@@ -405,6 +450,10 @@ def reset_password_request(request):
             new_password = "temp1234"
             user.set_password(new_password)
             user.save()
+            
+            # Очищаем сохраненные данные
+            if 'reset_email' in request.session:
+                del request.session['reset_email']
             
             messages.success(request, f"Пароль сброшен. Новый пароль: {new_password}")
             return redirect(f"{reverse('document-list')}?show_login_modal=1")
