@@ -1,6 +1,7 @@
 from django.db import models
 import os
 from django.utils import timezone
+from django.contrib.auth.models import User
 
 def document_upload_path(instance, filename):
     # Generate path like: documents/YYYY/MM/DD/filename
@@ -50,6 +51,7 @@ class Document(models.Model):
     file = models.FileField(upload_to=document_upload_path, verbose_name="Document file")
     file_format = models.CharField(max_length=10, choices=FORMAT_CHOICES, verbose_name="File format", blank=True, null=True)
     text_content = models.TextField(blank=True, verbose_name="Extracted text content")
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='documents', verbose_name="Document owner", null=True)
     
     # Metadata
     upload_date = models.DateTimeField(auto_now_add=True, verbose_name="Upload date")

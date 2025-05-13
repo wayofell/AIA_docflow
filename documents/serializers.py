@@ -3,6 +3,7 @@ from .models import Document
 import os
 import logging
 from .utils import extract_text_from_file
+from django.contrib.auth.models import User
 
 # Настройка логирования
 logger = logging.getLogger(__name__)
@@ -11,10 +12,12 @@ class DocumentSerializer(serializers.ModelSerializer):
     """
     Serializer for Document model
     """
+    owner_username = serializers.ReadOnlyField(source='owner.username')
+    
     class Meta:
         model = Document
-        fields = ['id', 'title', 'file', 'file_format', 'upload_date', 'size', 'text_content']
-        read_only_fields = ['id', 'upload_date', 'size', 'text_content']
+        fields = ['id', 'title', 'file', 'file_format', 'upload_date', 'size', 'text_content', 'owner', 'owner_username']
+        read_only_fields = ['id', 'upload_date', 'size', 'text_content', 'owner_username']
 
     def validate_file(self, file):
         """
@@ -69,6 +72,11 @@ class DocumentSerializer(serializers.ModelSerializer):
             file = validated_data['file']
             ext = os.path.splitext(file.name)[1].lower().replace('.', '')
             validated_data['file_format'] = ext
+            
+            # Set owner to current user
+            request = self.context.get('request')
+            if request and request.user.is_authenticated:
+                validated_data['owner'] = request.user
             
             # Create the document instance
             document = Document.objects.create(**validated_data)

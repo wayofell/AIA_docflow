@@ -17,12 +17,33 @@ from django.urls import reverse
 # Настройка логирования
 logger = logging.getLogger(__name__)
 
+class IsOwnerOrReadOnly(permissions.BasePermission):
+    """
+    Custom permission to only allow owners of an object to edit it.
+    """
+    def has_object_permission(self, request, view, obj):
+        # Read permissions are allowed to any request,
+        # so we'll always allow GET, HEAD or OPTIONS requests.
+        if request.method in permissions.SAFE_METHODS:
+            return True
+
+        # Write permissions are only allowed to the owner
+        return obj.owner == request.user
+
 class DocumentViewSet(viewsets.ModelViewSet):
     """
     ViewSet for viewing and editing documents
     """
     serializer_class = DocumentSerializer
-    queryset = Document.objects.all().order_by('-upload_date')
+    permission_classes = [permissions.IsAuthenticated, IsOwnerOrReadOnly]
+    
+    def get_queryset(self):
+        """
+        This view should return a list of all documents
+        for the currently authenticated user.
+        """
+        user = self.request.user
+        return Document.objects.filter(owner=user).order_by('-upload_date')
     
     def create(self, request, *args, **kwargs):
         """
@@ -125,9 +146,10 @@ class DocumentViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Search in both title and text_content
+        # Search in both title and text_content, only for user's documents
         documents = Document.objects.filter(
-            Q(title__icontains=query) | Q(text_content__icontains=query)
+            Q(title__icontains=query) | Q(text_content__icontains=query),
+            owner=request.user
         ).order_by('-upload_date')
         
         page = self.paginate_queryset(documents)
@@ -148,6 +170,9 @@ def document_upload_page(request):
     """
     Render the document upload page
     """
+    if not request.user.is_authenticated:
+        return redirect(f"{reverse('document-list')}?show_login_modal=1")
+        
     context = {
         'show_login_modal': 'show_login_modal' in request.GET,
         'show_register_modal': 'show_register_modal' in request.GET
@@ -168,6 +193,12 @@ def document_view_page(request, pk):
     """
     Render the document view page
     """
+    document = get_object_or_404(Document, pk=pk)
+    
+    # Check if the user is the owner of the document
+    if not request.user.is_authenticated or document.owner != request.user:
+        return redirect(f"{reverse('document-list')}?show_login_modal=1")
+        
     context = {
         'document_id': pk,
         'show_login_modal': 'show_login_modal' in request.GET,
@@ -179,6 +210,9 @@ def search_page(request):
     """
     Render the search page
     """
+    if not request.user.is_authenticated:
+        return redirect(f"{reverse('document-list')}?show_login_modal=1")
+        
     context = {
         'show_login_modal': 'show_login_modal' in request.GET,
         'show_register_modal': 'show_register_modal' in request.GET
@@ -190,6 +224,11 @@ def document_file_view(request, pk):
     Serve document file directly with proper content type
     """
     document = get_object_or_404(Document, pk=pk)
+    
+    # Check if the user is the owner of the document
+    if not request.user.is_authenticated or document.owner != request.user:
+        return redirect(f"{reverse('document-list')}?show_login_modal=1")
+        
     file_path = document.file.path
     
     # Определяем MIME-тип файла
@@ -248,48 +287,49 @@ def user_login(request):
         password = request.POST.get('password')
         remember_me = request.POST.get('remember_me') == 'on'
         
-        # Пробуем найти пользователя сначала по имени
-        user = authenticate(request, username=username_or_email, password=password)
-        
-        # Если пользователь не найден по имени, пробуем по email
-        if user is None:
-            try:
-                # Ищем пользователя по email
-                user_obj = User.objects.get(email=username_or_email)
-                # Аутентифицируем по найденному username и введенному паролю
-                user = authenticate(request, username=user_obj.username, password=password)
-            except User.DoesNotExist:
-                user = None
+        # Check if user exists with this username or email
+        user = None
+        try:
+            # First try to authenticate with username
+            user = authenticate(username=username_or_email, password=password)
+            
+            # If that fails, try with email
+            if user is None:
+                try:
+                    user_obj = User.objects.get(email=username_or_email)
+                    user = authenticate(username=user_obj.username, password=password)
+                except User.DoesNotExist:
+                    pass
+        except Exception as e:
+            logger.error(f"Error during authentication: {str(e)}")
         
         if user is not None:
-            # Если "запомнить меня" не отмечено, сессия будет удалена при закрытии браузера
-            if not remember_me:
-                request.session.set_expiry(0)
-            
             login(request, user)
-            messages.success(request, f"Здравствуйте, {user.username}! Вы успешно вошли в систему.")
-            # Редирект на страницу, с которой пришел пользователь, или на главную
-            next_page = request.GET.get('next', reverse('document-list'))
-            return redirect(next_page)
+            
+            # Set session expiry based on remember_me
+            if not remember_me:
+                request.session.set_expiry(0)  # Session expires when browser closes
+            
+            messages.success(request, f"Успешный вход в систему. Добро пожаловать, {user.username}!")
+            
+            # Redirect to the page where login was initiated
+            next_url = request.POST.get('next', 'document-list')
+            return redirect(next_url)
         else:
-            messages.error(request, "Неверное имя пользователя/email или пароль.")
-            # Возвращаемся на предыдущую страницу с параметром для отображения модального окна
-            referer = request.META.get('HTTP_REFERER', reverse('document-list'))
-            if '?' in referer:
-                referer += '&show_login_modal=1'
-            else:
-                referer += '?show_login_modal=1'
-            return redirect(referer)
-    
-    # GET запросы перенаправляем на главную
-    return redirect('document-list')
+            messages.error(request, "Неправильное имя пользователя/email или пароль.")
+            
+            # Redirect back with error message and show login modal
+            return redirect(f"{reverse('document-list')}?show_login_modal=1")
+    else:
+        # GET request is not handled here, redirecting to the main page
+        return redirect('document-list')
 
 def user_logout(request):
     """
     Handle user logout
     """
     logout(request)
-    messages.info(request, "Вы вышли из системы.")
+    messages.success(request, "Вы успешно вышли из системы.")
     return redirect('document-list')
 
 def user_register(request):
@@ -299,80 +339,82 @@ def user_register(request):
     if request.method == 'POST':
         username = request.POST.get('username')
         email = request.POST.get('email')
-        password1 = request.POST.get('password1')
-        password2 = request.POST.get('password2')
+        password = request.POST.get('password')
+        password_confirm = request.POST.get('password_confirm')
         
-        # Проверка данных
-        if password1 != password2:
+        # Basic validation
+        if not (username and email and password and password_confirm):
+            messages.error(request, "Все поля обязательны для заполнения.")
+            return redirect(f"{reverse('document-list')}?show_register_modal=1")
+            
+        if password != password_confirm:
             messages.error(request, "Пароли не совпадают.")
-            referer = request.META.get('HTTP_REFERER', reverse('document-list'))
-            if '?' in referer:
-                referer += '&show_register_modal=1'
-            else:
-                referer += '?show_register_modal=1'
-            return redirect(referer)
+            return redirect(f"{reverse('document-list')}?show_register_modal=1")
+            
+        if len(password) < 8:
+            messages.error(request, "Пароль должен быть не менее 8 символов.")
+            return redirect(f"{reverse('document-list')}?show_register_modal=1")
         
+        # Check if username or email already exists
         if User.objects.filter(username=username).exists():
             messages.error(request, "Пользователь с таким именем уже существует.")
-            referer = request.META.get('HTTP_REFERER', reverse('document-list'))
-            if '?' in referer:
-                referer += '&show_register_modal=1'
-            else:
-                referer += '?show_register_modal=1'
-            return redirect(referer)
-        
+            return redirect(f"{reverse('document-list')}?show_register_modal=1")
+            
         if User.objects.filter(email=email).exists():
             messages.error(request, "Пользователь с таким email уже существует.")
-            referer = request.META.get('HTTP_REFERER', reverse('document-list'))
-            if '?' in referer:
-                referer += '&show_register_modal=1'
-            else:
-                referer += '?show_register_modal=1'
-            return redirect(referer)
+            return redirect(f"{reverse('document-list')}?show_register_modal=1")
         
-        # Создание пользователя
+        # Create the user
         try:
-            user = User.objects.create_user(username=username, email=email, password=password1)
-            user.save()
+            user = User.objects.create_user(
+                username=username,
+                email=email,
+                password=password
+            )
             
-            # Автоматический вход после регистрации
-            login_user = authenticate(request, username=username, password=password1)
-            if login_user is not None:
-                login(request, login_user)
-                messages.success(request, f"Здравствуйте, {username}! Ваш аккаунт успешно создан.")
-            else:
-                messages.success(request, "Аккаунт успешно создан. Пожалуйста, войдите в систему.")
-            
+            # Auto-login after registration
+            login(request, user)
+            messages.success(request, f"Регистрация успешна. Добро пожаловать, {username}!")
             return redirect('document-list')
         except Exception as e:
-            logger.error(f"Error creating user: {str(e)}")
-            messages.error(request, f"Ошибка при создании пользователя: {str(e)}")
-            return redirect(request.META.get('HTTP_REFERER', reverse('document-list')))
-    
-    # GET запросы перенаправляем на главную
-    return redirect('document-list')
+            logger.error(f"Error during user registration: {str(e)}")
+            messages.error(request, f"Ошибка при регистрации: {str(e)}")
+            return redirect(f"{reverse('document-list')}?show_register_modal=1")
+    else:
+        # GET request is not handled here, redirecting to the main page
+        return redirect('document-list')
 
 def reset_password_request(request):
     """
     Handle password reset request
-    
-    Примечание: В текущей реализации письма не отправляются. 
-    Для полной функциональности необходимо настроить SMTP-сервер
-    и использовать Django Password Reset Views.
     """
     if request.method == 'POST':
         email = request.POST.get('email')
         
-        if User.objects.filter(email=email).exists():
-            # TODO: Реализовать отправку email со ссылкой для сброса пароля
-            # Для этого необходимо использовать Django Password Reset Views
-            # и настроить параметры EMAIL_* в settings.py
-            messages.info(request, "Инструкции по сбросу пароля отправлены на ваш email. (Функция в разработке)")
-        else:
-            # Для безопасности не сообщаем, что пользователя с таким email не существует
-            messages.info(request, "Инструкции по сбросу пароля отправлены на ваш email (если он зарегистрирован). (Функция в разработке)")
+        # Validate email
+        if not email:
+            messages.error(request, "Укажите email.")
+            return redirect(f"{reverse('document-list')}?show_reset_modal=1")
         
+        # Check if user with this email exists
+        try:
+            user = User.objects.get(email=email)
+            
+            # Here should be code to send email with password reset link
+            # For demo, just set a simple password
+            new_password = "temp1234"
+            user.set_password(new_password)
+            user.save()
+            
+            messages.success(request, f"Пароль сброшен. Новый пароль: {new_password}")
+            return redirect(f"{reverse('document-list')}?show_login_modal=1")
+        except User.DoesNotExist:
+            messages.error(request, "Пользователь с таким email не найден.")
+            return redirect(f"{reverse('document-list')}?show_reset_modal=1")
+        except Exception as e:
+            logger.error(f"Error during password reset: {str(e)}")
+            messages.error(request, f"Ошибка при сбросе пароля: {str(e)}")
+            return redirect(f"{reverse('document-list')}?show_reset_modal=1")
+    else:
+        # GET request is not handled here, redirecting to the main page
         return redirect('document-list')
-    
-    # GET запросы перенаправляем на главную
-    return redirect('document-list')
