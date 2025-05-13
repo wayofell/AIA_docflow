@@ -1,0 +1,187 @@
+{% extends 'documents/base.html' %}
+
+{% block title %}Поиск документов - Система документооборота{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">Поиск документов</h1>
+        
+        <div class="card mb-4">
+            <div class="card-body">
+                <form id="search-form">
+                    <div class="input-group mb-3">
+                        <input type="text" id="search-query" class="form-control" placeholder="Введите текст для поиска..." required>
+                        <button class="btn btn-primary" type="submit">
+                            Найти
+                        </button>
+                    </div>
+                    <div class="form-text">
+                        Поиск осуществляется по названию документа и его текстовому содержимому.
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <div id="search-results-container" style="display: none;">
+            <h2 class="mb-3">Результаты поиска: <span id="search-term"></span></h2>
+            
+            <div id="no-results" class="alert alert-info" style="display: none;">
+                По вашему запросу ничего не найдено. Попробуйте изменить параметры поиска.
+            </div>
+            
+            <div id="results-list"></div>
+        </div>
+        
+        <div id="loading" style="display: none;" class="text-center my-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Загрузка...</span>
+            </div>
+            <p class="mt-2">Поиск документов...</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchForm = document.getElementById('search-form');
+        const searchQuery = document.getElementById('search-query');
+        const resultsContainer = document.getElementById('search-results-container');
+        const searchTerm = document.getElementById('search-term');
+        const noResults = document.getElementById('no-results');
+        const resultsList = document.getElementById('results-list');
+        const loading = document.getElementById('loading');
+        
+        // Get query parameter if exists
+        const urlParams = new URLSearchParams(window.location.search);
+        const queryParam = urlParams.get('q');
+        
+        if (queryParam) {
+            // Set the search query and submit the form
+            searchQuery.value = queryParam;
+            searchDocuments(queryParam);
+        }
+        
+        searchForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const query = searchQuery.value.trim();
+            
+            if (query) {
+                // Update URL with query parameter
+                const url = new URL(window.location);
+                url.searchParams.set('q', query);
+                window.history.pushState({}, '', url);
+                
+                searchDocuments(query);
+            }
+        });
+        
+        function searchDocuments(query) {
+            // Show loading indicator
+            loading.style.display = 'block';
+            resultsContainer.style.display = 'none';
+            
+            // Perform search
+            fetch(`/api/documents/search/?q=${encodeURIComponent(query)}`)
+                .then(response => {
+                    if (!response.ok) {
+                        if (response.status === 403) {
+                            window.location.href = "{% url 'admin:login' %}";
+                            return;
+                        }
+                        throw new Error('Ошибка при поиске');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // Hide loading indicator
+                    loading.style.display = 'none';
+                    
+                    // Show search term
+                    searchTerm.textContent = `"${query}"`;
+                    
+                    // Show results container
+                    resultsContainer.style.display = 'block';
+                    
+                    // Check if there are results
+                    if (data.length === 0) {
+                        noResults.style.display = 'block';
+                        resultsList.innerHTML = '';
+                        return;
+                    }
+                    
+                    // Hide no results message
+                    noResults.style.display = 'none';
+                    
+                    // Display results
+                    displayResults(data);
+                })
+                .catch(error => {
+                    console.error('Ошибка:', error);
+                    loading.style.display = 'none';
+                    alert('Произошла ошибка при поиске. Пожалуйста, повторите попытку позже.');
+                });
+        }
+        
+        function displayResults(documents) {
+            resultsList.innerHTML = '';
+            
+            documents.forEach(doc => {
+                // Format date
+                const date = new Date(doc.upload_date);
+                const formattedDate = date.toLocaleDateString('ru-RU') + ' ' + 
+                                     date.toLocaleTimeString('ru-RU', {hour: '2-digit', minute:'2-digit'});
+                
+                // Format size
+                const size = formatBytes(doc.size);
+                
+                // Create a card for each document
+                const card = document.createElement('div');
+                card.className = 'card mb-3';
+                
+                // Create excerpt from content if too long
+                let textContent = doc.text_content || 'Нет текстового содержимого';
+                if (textContent.length > 300) {
+                    textContent = textContent.substring(0, 300) + '...';
+                }
+                
+                card.innerHTML = `
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5 class="card-title mb-0">
+                                <a href="/documents/${doc.id}/">${doc.title}</a>
+                            </h5>
+                            <span class="badge bg-secondary">${doc.file_format.toUpperCase()}</span>
+                        </div>
+                        <p class="card-text mt-2 text-muted small">
+                            Размер: ${size} | Загружен: ${formattedDate}
+                        </p>
+                        <div class="card-text mt-3 text-excerpt">
+                            <small class="text-muted">${textContent}</small>
+                        </div>
+                        <div class="mt-3">
+                            <a href="/documents/${doc.id}/" class="btn btn-sm btn-outline-primary">Просмотреть</a>
+                        </div>
+                    </div>
+                `;
+                
+                resultsList.appendChild(card);
+            });
+        }
+        
+        function formatBytes(bytes, decimals = 2) {
+            if (bytes === 0) return '0 Байт';
+
+            const k = 1024;
+            const dm = decimals < 0 ? 0 : decimals;
+            const sizes = ['Байт', 'КБ', 'МБ', 'ГБ', 'ТБ'];
+
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+        }
+    });
+</script>
+{% endblock %} 

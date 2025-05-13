@@ -1,0 +1,243 @@
+{% extends 'documents/base.html' %}
+
+{% block title %}Просмотр документа - Система документооборота{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 id="document-title">Загрузка документа...</h1>
+            <div>
+                <a href="{% url 'document-list' %}" class="btn btn-outline-secondary me-2">
+                    Вернуться к списку
+                </a>
+                <button id="delete-btn" class="btn btn-danger" style="display: none;">
+                    Удалить документ
+                </button>
+            </div>
+        </div>
+        
+        <div id="loading" class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Загрузка...</span>
+            </div>
+            <p class="mt-2">Загрузка документа...</p>
+        </div>
+        
+        <div id="document-error" class="alert alert-danger" style="display: none;">
+            Не удалось загрузить документ. Пожалуйста, повторите попытку позже или вернитесь к списку документов.
+        </div>
+        
+        <div id="document-content" style="display: none;">
+            <div class="row">
+                <!-- Document metadata -->
+                <div class="col-md-4 mb-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">Информация о документе</h5>
+                        </div>
+                        <div class="card-body">
+                            <dl>
+                                <dt>Формат</dt>
+                                <dd id="document-format"></dd>
+                                
+                                <dt>Размер</dt>
+                                <dd id="document-size"></dd>
+                                
+                                <dt>Дата загрузки</dt>
+                                <dd id="document-date"></dd>
+                            </dl>
+                            
+                            <a id="document-download" href="#" class="btn btn-primary w-100" target="_blank">
+                                Скачать документ
+                            </a>
+                        </div>
+                    </div>
+                    
+                    <div class="card mt-3">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">Извлеченный текст</h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="document-text" class="text-muted" style="max-height: 300px; overflow-y: auto; white-space: pre-wrap;"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Document preview -->
+                <div class="col-md-8 mb-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">Предпросмотр документа</h5>
+                        </div>
+                        <div class="card-body text-center">
+                            <div id="image-preview" style="display: none;">
+                                <img id="document-image" class="img-fluid" alt="Предпросмотр документа">
+                            </div>
+                            
+                            <div id="pdf-preview" style="display: none;">
+                                <iframe id="pdf-iframe" width="100%" height="600" frameborder="0" 
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                                    allowfullscreen></iframe>
+                                
+                                <!-- Альтернативный способ просмотра PDF для случаев, когда iframe не работает -->
+                                <div class="mt-3">
+                                    <a id="pdf-external-link" href="#" target="_blank" class="btn btn-outline-primary">
+                                        Открыть PDF в новой вкладке
+                                    </a>
+                                </div>
+                                
+                                <!-- Сообщение о возможных проблемах -->
+                                <div class="alert alert-info mt-3 small">
+                                    Если предпросмотр не отображается, используйте кнопку выше для открытия документа в новой вкладке.
+                                </div>
+                            </div>
+                            
+                            <div id="unsupported-preview" class="alert alert-warning" style="display: none;">
+                                Предпросмотр для этого типа документа недоступен.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Скрытый элемент с идентификатором документа -->
+<input type="hidden" id="document-id" value="{{ document_id }}">
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Получаем идентификатор документа из скрытого поля
+        const documentId = parseInt(document.getElementById('document-id').value);
+        
+        fetchDocument(documentId);
+        
+        // Delete button
+        const deleteBtn = document.getElementById('delete-btn');
+        deleteBtn.addEventListener('click', function() {
+            if (confirm('Вы уверены, что хотите удалить этот документ?')) {
+                deleteDocument(documentId);
+            }
+        });
+    });
+    
+    function fetchDocument(id) {
+        const loading = document.getElementById('loading');
+        const documentContent = document.getElementById('document-content');
+        const documentError = document.getElementById('document-error');
+        
+        fetch(`/api/documents/${id}/`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Ошибка при загрузке документа');
+                }
+                return response.json();
+            })
+            .then(doc => {
+                // Update document metadata
+                document.getElementById('document-title').textContent = doc.title;
+                document.getElementById('document-format').textContent = doc.file_format.toUpperCase();
+                document.getElementById('document-size').textContent = formatBytes(doc.size);
+                
+                // Format date
+                const date = new Date(doc.upload_date);
+                const formattedDate = date.toLocaleDateString('ru-RU') + ' ' + 
+                                     date.toLocaleTimeString('ru-RU', {hour: '2-digit', minute:'2-digit'});
+                document.getElementById('document-date').textContent = formattedDate;
+                
+                // Set download link
+                document.getElementById('document-download').href = doc.file;
+                
+                // Show extracted text
+                document.getElementById('document-text').textContent = doc.text_content || 'Текст не извлечен или документ не содержит текста.';
+                
+                // Show preview based on file format
+                if (doc.file_format === 'pdf') {
+                    // Для PDF нужно специальное форматирование URL
+                    const pdfUrl = doc.file;
+                    
+                    // Устанавливаем URL для iframe и внешней ссылки
+                    document.getElementById('pdf-iframe').src = pdfUrl;
+                    document.getElementById('pdf-external-link').href = pdfUrl;
+                    
+                    // Попытка загрузить PDF через объект (альтернативный способ)
+                    const pdfIframe = document.getElementById('pdf-iframe');
+                    pdfIframe.onload = function() {
+                        console.log('PDF iframe загружен');
+                    };
+                    pdfIframe.onerror = function() {
+                        console.error('Ошибка загрузки PDF в iframe');
+                    };
+                    
+                    document.getElementById('pdf-preview').style.display = 'block';
+                } else if (['jpg', 'jpeg'].includes(doc.file_format)) {
+                    document.getElementById('document-image').src = doc.file;
+                    document.getElementById('image-preview').style.display = 'block';
+                } else {
+                    document.getElementById('unsupported-preview').style.display = 'block';
+                }
+                
+                // Show content
+                loading.style.display = 'none';
+                documentContent.style.display = 'block';
+                document.getElementById('delete-btn').style.display = 'block';
+            })
+            .catch(error => {
+                console.error('Ошибка:', error);
+                loading.style.display = 'none';
+                documentError.style.display = 'block';
+            });
+    }
+    
+    function deleteDocument(id) {
+        fetch(`/api/documents/${id}/`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Ошибка при удалении');
+            }
+            // Redirect to document list
+            window.location.href = "{% url 'document-list' %}";
+        })
+        .catch(error => {
+            console.error('Ошибка:', error);
+            alert('Не удалось удалить документ. Пожалуйста, повторите попытку позже.');
+        });
+    }
+    
+    function formatBytes(bytes, decimals = 2) {
+        if (bytes === 0) return '0 Байт';
+
+        const k = 1024;
+        const dm = decimals < 0 ? 0 : decimals;
+        const sizes = ['Байт', 'КБ', 'МБ', 'ГБ', 'ТБ'];
+
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+    }
+    
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+</script>
+{% endblock %} 

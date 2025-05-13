@@ -1,0 +1,52 @@
+{% extends 'documents/base.html' %}
+
+{% block title %}Главная - Система документооборота{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8 col-md-10 mx-auto text-center">
+        <div class="py-5">
+            <h1 class="display-4 mb-4">Система документооборота</h1>
+            <p class="lead mb-4">
+                Управляйте документами с легкостью: загружайте, просматривайте, ищите документы в одном месте
+            </p>
+            
+            <div class="d-grid gap-3 d-sm-flex justify-content-sm-center">
+                <a href="{% url 'document-list' %}" class="btn btn-primary btn-lg px-4 gap-3">
+                    Все документы
+                </a>
+                <a href="{% url 'document-upload' %}" class="btn btn-outline-secondary btn-lg px-4">
+                    Загрузить документ
+                </a>
+            </div>
+        </div>
+        
+        <div class="row mt-5">
+            <div class="col-md-4">
+                <div class="card mb-4">
+                    <div class="card-body text-center">
+                        <h3 class="h5">Загрузка</h3>
+                        <p class="card-text">Загружайте документы в форматах PDF, JPG, JPEG</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card mb-4">
+                    <div class="card-body text-center">
+                        <h3 class="h5">Просмотр</h3>
+                        <p class="card-text">Просматривайте содержимое документов прямо в браузере</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card mb-4">
+                    <div class="card-body text-center">
+                        <h3 class="h5">Поиск</h3>
+                        <p class="card-text">Выполняйте поиск по названию и содержимому документов</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 
