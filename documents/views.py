@@ -60,10 +60,35 @@ class DocumentViewSet(viewsets.ModelViewSet):
         # Определяем MIME-тип файла
         content_type, encoding = mimetypes.guess_type(file_path)
         if content_type is None:
+            # Явное определение MIME-типов для известных форматов
             if document.file_format == 'pdf':
                 content_type = 'application/pdf'
             elif document.file_format in ['jpg', 'jpeg']:
                 content_type = 'image/jpeg'
+            elif document.file_format == 'png':
+                content_type = 'image/png'
+            elif document.file_format == 'gif':
+                content_type = 'image/gif'
+            elif document.file_format == 'svg':
+                content_type = 'image/svg+xml'
+            elif document.file_format == 'heic':
+                content_type = 'image/heic'
+            elif document.file_format == 'doc':
+                content_type = 'application/msword'
+            elif document.file_format == 'docx':
+                content_type = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            elif document.file_format == 'xls':
+                content_type = 'application/vnd.ms-excel'
+            elif document.file_format == 'xlsx':
+                content_type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            elif document.file_format == 'ppt':
+                content_type = 'application/vnd.ms-powerpoint'
+            elif document.file_format == 'pptx':
+                content_type = 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+            elif document.file_format == 'txt':
+                content_type = 'text/plain'
+            elif document.file_format == 'md':
+                content_type = 'text/markdown'
             else:
                 content_type = 'application/octet-stream'
         
@@ -170,10 +195,35 @@ def document_file_view(request, pk):
     # Определяем MIME-тип файла
     content_type, encoding = mimetypes.guess_type(file_path)
     if content_type is None:
+        # Явное определение MIME-типов для известных форматов
         if document.file_format == 'pdf':
             content_type = 'application/pdf'
         elif document.file_format in ['jpg', 'jpeg']:
             content_type = 'image/jpeg'
+        elif document.file_format == 'png':
+            content_type = 'image/png'
+        elif document.file_format == 'gif':
+            content_type = 'image/gif'
+        elif document.file_format == 'svg':
+            content_type = 'image/svg+xml'
+        elif document.file_format == 'heic':
+            content_type = 'image/heic'
+        elif document.file_format == 'doc':
+            content_type = 'application/msword'
+        elif document.file_format == 'docx':
+            content_type = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        elif document.file_format == 'xls':
+            content_type = 'application/vnd.ms-excel'
+        elif document.file_format == 'xlsx':
+            content_type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        elif document.file_format == 'ppt':
+            content_type = 'application/vnd.ms-powerpoint'
+        elif document.file_format == 'pptx':
+            content_type = 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+        elif document.file_format == 'txt':
+            content_type = 'text/plain'
+        elif document.file_format == 'md':
+            content_type = 'text/markdown'
         else:
             content_type = 'application/octet-stream'
     

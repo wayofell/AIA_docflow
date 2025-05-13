@@ -31,7 +31,12 @@ class DocumentSerializer(serializers.ModelSerializer):
         ext = os.path.splitext(file_name)[1].lower().replace('.', '')
         
         # Check if the extension is in allowed formats
-        allowed_formats = [Document.PDF, Document.JPG, Document.JPEG]
+        allowed_formats = [
+            Document.PDF, Document.JPG, Document.JPEG, Document.PNG, Document.GIF, 
+            Document.HEIC, Document.SVG, Document.DOC, Document.DOCX, Document.PPT, 
+            Document.PPTX, Document.TXT, Document.XLS, Document.XLSX, Document.MD
+        ]
+        
         if ext not in allowed_formats:
             error_msg = f"Неподдерживаемый формат файла. Разрешенные форматы: {', '.join(allowed_formats)}"
             logger.error(error_msg)

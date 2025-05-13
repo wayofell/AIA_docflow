@@ -15,11 +15,35 @@ class Document(models.Model):
     PDF = 'pdf'
     JPG = 'jpg'
     JPEG = 'jpeg'
+    PNG = 'png'
+    GIF = 'gif'
+    HEIC = 'heic'
+    SVG = 'svg'
+    DOC = 'doc'
+    DOCX = 'docx'
+    PPT = 'ppt'
+    PPTX = 'pptx'
+    TXT = 'txt'
+    XLS = 'xls'
+    XLSX = 'xlsx'
+    MD = 'md'
     
     FORMAT_CHOICES = [
         (PDF, 'PDF'),
         (JPG, 'JPG'),
         (JPEG, 'JPEG'),
+        (PNG, 'PNG'),
+        (GIF, 'GIF'),
+        (HEIC, 'HEIC'),
+        (SVG, 'SVG'),
+        (DOC, 'DOC'),
+        (DOCX, 'DOCX'),
+        (PPT, 'PPT'),
+        (PPTX, 'PPTX'),
+        (TXT, 'TXT'),
+        (XLS, 'XLS'),
+        (XLSX, 'XLSX'),
+        (MD, 'MD'),
     ]
     
     title = models.CharField(max_length=255, verbose_name="Document title")
@@ -42,7 +66,10 @@ class Document(models.Model):
             # Determine file format from extension if not set
             if not self.file_format and self.file:
                 ext = os.path.splitext(self.file.name)[1].lower().replace('.', '')
-                if ext in [self.PDF, self.JPG, self.JPEG]:
+                valid_formats = [self.PDF, self.JPG, self.JPEG, self.PNG, self.GIF, self.HEIC, 
+                                self.SVG, self.DOC, self.DOCX, self.PPT, self.PPTX, self.TXT,
+                                self.XLS, self.XLSX, self.MD]
+                if ext in valid_formats:
                     self.file_format = ext
                     
         super().save(*args, **kwargs)

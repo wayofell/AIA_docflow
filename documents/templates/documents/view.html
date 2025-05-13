@@ -174,9 +174,17 @@
                     };
                     
                     document.getElementById('pdf-preview').style.display = 'block';
-                } else if (['jpg', 'jpeg'].includes(doc.file_format)) {
+                } else if (['jpg', 'jpeg', 'png', 'gif', 'svg'].includes(doc.file_format)) {
+                    // Изображения отображаем напрямую
                     document.getElementById('document-image').src = doc.file;
                     document.getElementById('image-preview').style.display = 'block';
+                } else if (['doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'txt', 'md', 'heic'].includes(doc.file_format)) {
+                    // Для офисных документов и текстовых файлов предлагаем скачать
+                    document.getElementById('unsupported-preview').innerHTML = `
+                        <p>Предпросмотр для формата ${doc.file_format.toUpperCase()} недоступен в браузере.</p>
+                        <p>Используйте кнопку "Скачать документ", чтобы открыть файл в соответствующем приложении.</p>
+                    `;
+                    document.getElementById('unsupported-preview').style.display = 'block';
                 } else {
                     document.getElementById('unsupported-preview').style.display = 'block';
                 }
